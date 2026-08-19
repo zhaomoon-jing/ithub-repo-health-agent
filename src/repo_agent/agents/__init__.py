@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from repo_agent.analyzers.docs_analyzer import analyze_docs
 from repo_agent.analyzers.metadata_analyzer import analyze_metadata
 from repo_agent.clients.github_client import GitHubClient
 from repo_agent.models import HealthReport, RepoRef
@@ -25,8 +26,22 @@ class MetadataAgent:
         return meta, analyze_metadata(meta, commits, issues, contributors)
 
 
+class DocsAgent:
+    """Agent 2：文档完整性检查（D2）."""
+
+    def __init__(self, client: GitHubClient) -> None:
+        self.client = client
+
+    def run(self, ref: RepoRef, meta) -> list:
+        """拉取文档信息并分析，返回 finding（单条）."""
+        readme = self.client.get_readme_raw(ref)
+        root_files = self.client.get_root_files(ref)
+        has_ci = self.client.has_ci_workflows(ref)
+        return analyze_docs(meta, readme, root_files, has_ci)
+
+
 class Pipeline:
-    """D1 最小流水线：元数据 Agent + 报告输出.
+    """D1-D2 最小流水线：元数据 Agent + 文档 Agent + 报告输出.
 
     后续演进：LangGraph 状态图替换此处的顺序编排。
     """
@@ -38,6 +53,8 @@ class Pipeline:
         """执行完整体检，返回报告文件路径."""
         ref = GitHubClient.parse_repo_ref(input_text)
         meta, findings = MetadataAgent(self.client).run(ref)
+        findings = list(findings)
+        findings.append(DocsAgent(self.client).run(ref, meta))
         report = HealthReport(repo=ref, metadata=meta, findings=findings)
 
         from repo_agent.reporters.markdown_reporter import save_report

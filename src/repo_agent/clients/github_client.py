@@ -198,6 +198,26 @@ class GitHubClient:
         except httpx.HTTPError:
             return None
 
+    def get_root_files(self, ref: RepoRef) -> list[str]:
+        """列出仓库根目录文件名（小写）。失败返回空列表，不阻塞主流程."""
+        try:
+            resp = self._client.get(f"/repos/{ref.full_name}/contents/")
+            if resp.status_code != 200:
+                return []
+            return [item.get("name", "").lower() for item in resp.json() if item.get("type") == "file"]
+        except httpx.HTTPError:
+            return []
+
+    def has_ci_workflows(self, ref: RepoRef) -> bool:
+        """检测是否存在 .github/workflows（CI/CD 配置）."""
+        try:
+            resp = self._client.get(f"/repos/{ref.full_name}/contents/.github/workflows")
+            if resp.status_code == 200 and isinstance(resp.json(), list):
+                return len(resp.json()) > 0
+            return False
+        except httpx.HTTPError:
+            return False
+
     def close(self) -> None:
         self._client.close()
 

@@ -60,6 +60,8 @@ def score_activity(meta: RepoMetadata, commits: list[CommitInfo], issues: IssueM
 
     if issues.merged_prs_30d == 0 and issues.open_prs == 0:
         suggestions.append("近 30 天无 PR 活动，社区贡献冷清")
+    if issues.open_prs == 0:
+        evidences.append("待处理 PR 数为 0，注意：无 Token 时部分接口受限，该值可能不准")
     evidences.append(f"近 30 天: 关闭 Issue {issues.closed_issues_30d} 个 / 合并 PR {issues.merged_prs_30d} 个 / 待处理 PR {issues.open_prs} 个")
 
     if issues.closed_issues_30d > 0:
