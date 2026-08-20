@@ -123,4 +123,5 @@ class Pipeline:
 
             os.makedirs("reports", exist_ok=True)
             out_path = f"reports/{ref.full_name.replace('/', '_')}.md"
-        return save_report(report, out_path)
+        save_report(report, out_path)
+        return report

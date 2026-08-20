@@ -35,7 +35,8 @@ def main() -> int:
 
     try:
         pipeline = Pipeline(token=args.token, skip_deep=args.skip_deep)
-        out = pipeline.run(args.repo, args.out)
+        report = pipeline.run(args.repo, args.out)
+        out = args.out or f"reports/{report.repo.full_name.replace('/', '_')}.md"
         print(f"✅ 体检完成，报告已生成: {out}")
         return 0
     except RepoRefError as e:
