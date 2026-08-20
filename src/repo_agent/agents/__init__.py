@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from repo_agent.analyzers.code_analyzer import analyze_code_quality, detect_language
 from repo_agent.analyzers.docs_analyzer import analyze_docs
 from repo_agent.analyzers.metadata_analyzer import analyze_metadata
+from repo_agent.analyzers.security_analyzer import analyze_security
+from repo_agent.clients.cloner import FetchError, fetch_repo
 from repo_agent.clients.github_client import GitHubClient
-from repo_agent.models import HealthReport, RepoRef
+from repo_agent.models import HealthReport, MetadataFinding, RepoRef
 
 
 class MetadataAgent:
@@ -42,50 +46,40 @@ class DocsAgent:
 
 
 class CodeAgent:
-    """Agent 3：拉取仓库源码 + 真实静态分析（D3，差异化核心）.
+    """Agent 3：真实静态分析（D3，差异化核心）.
 
-    安全约束：只读文件，绝不执行仓库内脚本；分析完即清理临时目录。
-    获取方式：优先 codeload tarball（国内网络友好），失败降级 git clone。
+    接收已克隆的本地路径 + 检测到的主语言，做 ruff/radon/bandit 分析。
+    安全约束：只读文件，绝不执行仓库内脚本。
     """
 
-    def __init__(self, client: GitHubClient, clone_url_template: str = "https://github.com/{full_name}.git") -> None:
-        self.client = client
-        self.clone_url_template = clone_url_template
-
-    def run(self, ref: RepoRef, meta) -> list:
-        """执行深度分析，返回 findings 列表（非 Python 仓库返回说明）."""
-        from repo_agent.clients.cloner import FetchError, fetch_repo
+    def run(self, repo_path: Path, language: str | None) -> list:
         from repo_agent.models import MetadataFinding
 
-        clone_url = self.clone_url_template.format(full_name=ref.full_name)
-        try:
-            fetched = fetch_repo(self.client, clone_url, ref.owner, ref.name)
-        except FetchError as e:
+        if language != "python":
             return [
                 MetadataFinding(
-                    "代码质量", 0.0, f"深度分析跳过: {e}",
-                    [f"拉取源码失败（网络受限或仓库过大）: {e}"], [],
+                    "代码质量", None,
+                    f"仓库主语言为 {language}，当前静态分析工具链仅支持 Python，该维度未评估",
+                    [f"检测到 {language} 项目标记文件"], [],
                 )
             ]
+        finding = analyze_code_quality(repo_path, language)
+        return [finding] if finding else []
 
-        try:
-            language = detect_language(fetched.path)
-            if language != "python":
-                return [
-                    MetadataFinding(
-                        "代码质量", None,
-                        f"仓库主语言为 {language}，当前静态分析工具链仅支持 Python，该维度未评估",
-                        [f"检测到 {language} 项目标记文件"], [],
-                    )
-                ]
-            finding = analyze_code_quality(fetched.path, language)
-            return [finding] if finding else []
-        finally:
-            fetched.cleanup()
+
+class SecurityAgent:
+    """Agent 4：安全分析（D4）.
+
+    依赖漏洞(OSV, 仅 PyPI) + 硬编码密钥扫描(通用)。
+    与 CodeAgent 共享同一份克隆，不重复拉取。
+    """
+
+    def run(self, repo_path: Path, language: str | None) -> list:
+        return [analyze_security(repo_path, language)]
 
 
 class Pipeline:
-    """D1-D3 最小流水线：元数据 + 文档 + 代码质量 + 报告输出.
+    """D1-D4 流水线：元数据 + 文档 + 代码质量 + 安全 + 报告输出.
 
     后续演进：LangGraph 状态图替换此处的顺序编排。
     """
@@ -100,8 +94,26 @@ class Pipeline:
         meta, findings = MetadataAgent(self.client).run(ref)
         findings = list(findings)
         findings.append(DocsAgent(self.client).run(ref, meta))
+
         if not self.skip_deep:
-            findings.extend(CodeAgent(self.client).run(ref, meta))
+            clone_url = f"https://github.com/{ref.full_name}.git"
+            try:
+                fetched = fetch_repo(self.client, clone_url, ref.owner, ref.name)
+            except FetchError as e:
+                findings.append(
+                    MetadataFinding(
+                        "代码质量", 0.0, f"深度分析跳过: {e}",
+                        [f"拉取源码失败（网络受限或仓库过大）: {e}"], [],
+                    )
+                )
+            else:
+                try:
+                    language = detect_language(fetched.path)
+                    findings.extend(CodeAgent().run(fetched.path, language))
+                    findings.extend(SecurityAgent().run(fetched.path, language))
+                finally:
+                    fetched.cleanup()
+
         report = HealthReport(repo=ref, metadata=meta, findings=findings)
 
         from repo_agent.reporters.markdown_reporter import save_report
