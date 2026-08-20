@@ -124,14 +124,16 @@ def analyze_docs(
         suggestions.append("缺少 LICENSE：开源项目无许可证将阻碍社区使用与贡献")
 
     # ---- CONTRIBUTING ----
-    if any(f.startswith("contributing") for f in root_files):
+    has_contributing = any(f.startswith("contributing") for f in root_files)
+    if has_contributing:
         score += 5
         evidences.append("存在 CONTRIBUTING.md（贡献指南）")
     else:
         suggestions.append("缺少 CONTRIBUTING.md，贡献者不知如何参与")
 
     # ---- SECURITY ----
-    if any(f.startswith("security") for f in root_files):
+    has_security = any(f.startswith("security") for f in root_files)
+    if has_security:
         score += 5
         evidences.append("存在 SECURITY.md（安全政策）")
     else:
@@ -144,11 +146,20 @@ def analyze_docs(
     else:
         suggestions.append("未配置 CI/CD 工作流，代码质量缺少自动门禁")
 
-    score = round(min(score, 100.0), 1)
+    # 治理文档缺口惩罚：缺 CONTRIBUTING / SECURITY / LICENSE 任一，扣 20 分，
+    # 使分数与结论（不再判为"文档完善"）一致，避免 LLM 总评据此产出矛盾表述。
+    # 用固定扣分而非封顶，保留其他维度（如 CI）的加分差异。
+    governance_missing = (
+        (not has_contributing) or (not has_security)
+        or (not (has_license_file or meta.license_name))
+    )
+    if governance_missing:
+        score -= 20.0
+    score = round(min(max(score, 0.0), 100.0), 1)
     summary = (
-        "文档完善" if score >= 80
-        else "文档基本齐全" if score >= 60
-        else "文档欠缺" if score >= 40
+        "文档完善" if score >= 90
+        else "文档基本齐全" if score >= 70
+        else "文档欠缺" if score >= 45
         else "文档严重不足"
     )
     return MetadataFinding("文档完整性", score, summary, evidences, suggestions)
