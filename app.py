@@ -7,6 +7,7 @@ from __future__ import annotations
 import streamlit as st
 
 from repo_agent.agents import Pipeline
+from repo_agent.agents.qa import RepoQA
 from repo_agent.models import HealthReport, MetadataFinding
 
 
@@ -57,6 +58,43 @@ def _render_finding(f: MetadataFinding) -> None:
                 st.markdown(f"- ⚠️ {s}")
 
 
+def render_chat(report: HealthReport, qa: RepoQA) -> None:
+    """D8: 基于报告上下文的多轮追问对话（含意图识别展示）."""
+    st.divider()
+    st.subheader("💬 多轮追问")
+    st.caption(
+        "基于上方报告继续提问，支持上下文追踪。示例："
+        "“代码维度怎么改进？”“和文档比哪个更弱？”"
+    )
+
+    for m in st.session_state.qa_messages:
+        with st.chat_message(m["role"]):
+            if m["role"] == "user":
+                st.markdown(m["content"])
+            else:
+                st.markdown(f"**意图 · {m['intent']}**  \n{m['content']}")
+                if m.get("followup"):
+                    st.caption(f"💡 可继续追问：{m['followup']}")
+
+    if prompt := st.chat_input("追问这个仓库…"):
+        st.session_state.qa_messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        with st.chat_message("assistant"):
+            ex = qa.ask(prompt)
+            st.markdown(f"**意图 · {ex.intent.value}**  \n{ex.answer}")
+            if ex.followup:
+                st.caption(f"💡 可继续追问：{ex.followup}")
+            st.session_state.qa_messages.append(
+                {
+                    "role": "assistant",
+                    "content": ex.answer,
+                    "intent": ex.intent.value,
+                    "followup": ex.followup,
+                }
+            )
+
+
 def main() -> None:
     st.set_page_config(page_title="GitHub 仓库健康体检 Agent", layout="wide")
     st.title("🏥 GitHub 仓库深度体检 Agent")
@@ -87,6 +125,21 @@ def main() -> None:
                 return
         render_report(report)
         st.success("体检完成 ✅")
+
+        # ---- D8: 基于报告的多轮追问对话 ----
+        if "qa_messages" not in st.session_state:
+            st.session_state.qa_messages = []
+        try:
+            if ("qa" not in st.session_state
+                    or st.session_state.get("qa_repo") != report.repo.full_name):
+                st.session_state.qa = RepoQA(report)
+                st.session_state.qa_repo = report.repo.full_name
+                st.session_state.qa_messages = []
+            render_chat(report, st.session_state.qa)
+        except Exception as e:  # noqa: BLE001 - 无 LLM key 时优雅降级
+            st.info(
+                f"💬 多轮追问需配置 LLM key（ZHIPU_API_KEY / DEEPSEEK_API_KEY）：{e}"
+            )
 
 
 if __name__ == "__main__":

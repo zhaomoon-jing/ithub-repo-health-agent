@@ -152,7 +152,7 @@ def _resolve_llm() -> "tuple[str, str, str] | None":
     """
     zhipu = os.environ.get("ZHIPU_API_KEY")
     if zhipu:
-        return (zhipu, "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4.6")
+        return (zhipu, "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash")
     deepseek = os.environ.get("DEEPSEEK_API_KEY")
     if deepseek:
         return (deepseek, "https://api.deepseek.com/v1/chat/completions", "deepseek-chat")
