@@ -31,10 +31,15 @@ def main() -> int:
         action="store_true",
         help="跳过 clone 深度分析（只用 API 数据，更快）",
     )
+    parser.add_argument(
+        "--use-llm",
+        action="store_true",
+        help="启用 LLM 总体诊断（需 ZHIPU_API_KEY 或 DEEPSEEK_API_KEY 环境变量）",
+    )
     args = parser.parse_args()
 
     try:
-        pipeline = Pipeline(token=args.token, skip_deep=args.skip_deep)
+        pipeline = Pipeline(token=args.token, skip_deep=args.skip_deep, use_llm=args.use_llm)
         report = pipeline.run(args.repo, args.out)
         out = args.out or f"reports/{report.repo.full_name.replace('/', '_')}.md"
         print(f"✅ 体检完成，报告已生成: {out}")

@@ -97,6 +97,7 @@ class HealthReport:
     repo: RepoRef
     metadata: RepoMetadata
     findings: list[MetadataFinding] = field(default_factory=list)
+    summary: Optional[str] = None  # LLM 或规则生成的总体诊断总评
     generated_at: datetime = field(default_factory=datetime.now)
 
     @property

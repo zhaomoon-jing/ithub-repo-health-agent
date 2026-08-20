@@ -36,8 +36,9 @@ class FetchError(Exception):
 class FetchedRepo:
     """获取结果：本地路径 + 清理回调."""
 
-    path: Path
+    path: Path  # 项目根（tarball 解压去顶层后可能是子目录）
     method: str  # "tarball" | "git"
+    root: Path  # 外层临时目录（清理时删这个，确保整棵子树被移除）
     _cleanup: object = field(default=None, repr=False)
 
     def cleanup(self) -> None:
@@ -98,7 +99,7 @@ def fetch_repo_tarball(
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise FetchError(f"tarball 解压失败: {e}")
 
-    return FetchedRepo(path=target, method="tarball",
+    return FetchedRepo(path=target, method="tarball", root=Path(tmp_dir),
                        _cleanup=lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
 
 
@@ -145,7 +146,7 @@ def fetch_repo_git(
         shutil.rmtree(tmp_dir, ignore_errors=True)
         raise FetchError(f"仓库体积过大（{size_mb:.0f}MB > {max_mb}MB），跳过深度分析")
 
-    return FetchedRepo(path=target, method="git",
+    return FetchedRepo(path=target, method="git", root=Path(tmp_dir),
                        _cleanup=lambda: shutil.rmtree(tmp_dir, ignore_errors=True))
 
 

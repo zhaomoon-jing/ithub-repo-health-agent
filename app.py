@@ -28,6 +28,10 @@ def render_report(report: HealthReport) -> None:
 
     st.metric("健康总分", f"{report.overall_score:.1f} / 100")
 
+    if report.summary:
+        st.subheader("🧠 总体诊断")
+        st.info(report.summary)
+
     meta = report.metadata
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Stars", f"{meta.stars:,}")
@@ -64,6 +68,7 @@ def main() -> None:
         st.header("配置")
         token = st.text_input("GitHub Token（可选，提升限流）", type="password")
         skip_deep = st.checkbox("跳过深度分析（仅元数据，更快）", value=False)
+        use_llm = st.checkbox("启用 LLM 总体诊断（需 ZHIPU_API_KEY 或 DEEPSEEK_API_KEY）", value=False)
         st.divider()
         st.markdown("输入格式：`owner/repo` 或完整 URL")
 
@@ -75,7 +80,7 @@ def main() -> None:
             return
         with st.spinner("正在克隆 + 静态分析 + 安全扫描…（首次可能需 30s–2min）"):
             try:
-                pipe = Pipeline(token=token or None, skip_deep=skip_deep)
+                pipe = Pipeline(token=token or None, skip_deep=skip_deep, use_llm=use_llm)
                 report = pipe.run(repo_input.strip())
             except Exception as e:  # noqa: BLE001 - 前端层兜底
                 st.error(f"体检失败: {e}")

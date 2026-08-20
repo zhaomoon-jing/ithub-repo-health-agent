@@ -40,6 +40,13 @@ def render_markdown(report: HealthReport) -> str:
     lines.append(f"| Topics | {', '.join(meta.topics[:8]) if meta.topics else '无'} |")
     lines.append("")
 
+    # 总体诊断（LLM 或规则总评）
+    if report.summary:
+        lines.append("## 总体诊断")
+        lines.append("")
+        lines.append(report.summary)
+        lines.append("")
+
     # 分维度
     lines.append("## 分维度诊断")
     lines.append("")
