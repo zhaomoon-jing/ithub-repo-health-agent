@@ -220,9 +220,13 @@ class Pipeline:
 
     def _docs(self, state: AgentState) -> dict:
         ref = state["ref"]
-        if not ref or not state.get("metadata"):
+        if not ref:
             return {}
-        return {"findings": DocsAgent(self.client).run(ref, state["metadata"])}
+        # LangGraph 中 metadata 与 docs 并行执行：docs 节点启动时读不到 metadata
+        # 节点的写入（state 仍是 superstep 初始快照），故缺失时自行补一次 get_repo，
+        # 既保留并行结构，又保证文档完整性维度不丢失。
+        meta = state.get("metadata") or self.client.get_repo(ref)
+        return {"findings": DocsAgent(self.client).run(ref, meta)}
 
     def _route_deep(self, state: AgentState) -> str:
         """条件边：是否进入深度克隆分析."""
