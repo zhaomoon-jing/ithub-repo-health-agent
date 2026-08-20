@@ -5,7 +5,9 @@ from __future__ import annotations
 from repo_agent.models import HealthReport
 
 
-def _priority_badge(score: float) -> str:
+def _priority_badge(score: float | None) -> str:
+    if score is None:
+        return "⚪"
     if score >= 75:
         return "🟢"
     if score >= 50:
@@ -42,7 +44,10 @@ def render_markdown(report: HealthReport) -> str:
     lines.append("## 分维度诊断")
     lines.append("")
     for finding in report.findings:
-        lines.append(f"### {_priority_badge(finding.score)} {finding.category}: {finding.score}/100")
+        if finding.score is None:
+            lines.append(f"### ⚪ {finding.category}: 未评估")
+        else:
+            lines.append(f"### {_priority_badge(finding.score)} {finding.category}: {finding.score}/100")
         lines.append("")
         lines.append(f"**结论**: {finding.summary}")
         lines.append("")
@@ -62,7 +67,7 @@ def render_markdown(report: HealthReport) -> str:
     # 尾部
     lines.append("---")
     lines.append("")
-    lines.append("*由 repo-health-agent 生成 · 本报告基于 GitHub 公开 API 元数据，代码级深度体检将在后续版本接入*")
+    lines.append("*由 repo-health-agent 生成 · 元数据来自 GitHub 公开 API，代码级深度体检通过克隆仓库后 ruff/radon/bandit 静态分析完成（带文件行号证据）*")
     lines.append("")
     return "\n".join(lines)
 

@@ -221,6 +221,10 @@ class GitHubClient:
     def close(self) -> None:
         self._client.close()
 
+    def get(self, url: str, **kwargs) -> httpx.Response:
+        """直接请求任意 URL（复用统一客户端配置，供 cloner 等模块使用）."""
+        return self._client.get(url, **kwargs)
+
     def __enter__(self) -> "GitHubClient":
         return self
 

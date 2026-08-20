@@ -26,10 +26,15 @@ def main() -> int:
         "--token",
         help="GitHub Token（也可用环境变量 GITHUB_TOKEN）",
     )
+    parser.add_argument(
+        "--skip-deep",
+        action="store_true",
+        help="跳过 clone 深度分析（只用 API 数据，更快）",
+    )
     args = parser.parse_args()
 
     try:
-        pipeline = Pipeline(token=args.token)
+        pipeline = Pipeline(token=args.token, skip_deep=args.skip_deep)
         out = pipeline.run(args.repo, args.out)
         print(f"✅ 体检完成，报告已生成: {out}")
         return 0

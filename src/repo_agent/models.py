@@ -84,7 +84,7 @@ class MetadataFinding:
     """元数据维度的诊断结果."""
 
     category: str  # 例如 "活跃度" / "社区"
-    score: float  # 0-100
+    score: float | None  # 0-100，None 表示该维度未评估（如非 Python 仓库）
     summary: str
     evidences: list[str] = field(default_factory=list)  # 支持结论的原始数据
     suggestions: list[str] = field(default_factory=list)  # 改进建议
@@ -101,7 +101,8 @@ class HealthReport:
 
     @property
     def overall_score(self) -> float:
-        """加权总评分（后续接入各维度 Agent 后扩展权重）."""
-        if not self.findings:
+        """加权总评分（跳过未评估维度）."""
+        scored = [f.score for f in self.findings if f.score is not None]
+        if not scored:
             return 0.0
-        return round(sum(f.score for f in self.findings) / len(self.findings), 1)
+        return round(sum(scored) / len(scored), 1)
