@@ -1,0 +1,20 @@
+sequenceDiagram
+    actor 用户
+    用户->>CLI: python -m repo_agent "psf/requests"
+    CLI->>Pipeline: run(input)
+    Pipeline->>GitHubClient: get_repo / commits / issues / contributors
+    GitHubClient-->>Pipeline: RepoMetadata
+    Pipeline->>Cloner: fetch_repo(tarball 优先)
+    Cloner-->>Pipeline: 本地代码路径
+    par 并行分析
+        Pipeline->>Analyzers: metadata + docs
+        Pipeline->>Analyzers: code + security
+    end
+    Analyzers-->>Pipeline: 各维度 findings
+    opt 开了 --use-llm
+        Pipeline->>LLM: 总评(智谱 glm-4-flash)
+        LLM-->>Pipeline: 自然语言诊断
+    end
+    Pipeline->>Reporter: render_markdown(HealthReport)
+    Reporter-->>文件: reports/psf_requests.md
+    Pipeline-->>用户: 打印报告路径

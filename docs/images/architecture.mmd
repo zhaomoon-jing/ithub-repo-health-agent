@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph IN[输入层]
+        U[用户输入 owner/repo 或 URL]
+    end
+    subgraph CLIENT[数据获取层 clients]
+        GC[GitHubClient<br/>REST API 只读]
+        CL[Cloner<br/>tarball / git 克隆]
+    end
+    subgraph AN[分析层 analyzers]
+        M[metadata 活跃度/社区]
+        D[docs 文档完整性]
+        C[code ruff/radon/bandit]
+        S[security OSV/密钥]
+    end
+    subgraph ORCH[编排层 agents]
+        LG[LangGraph StateGraph<br/>并行 + 条件路由 + 容错]
+        LLM[LLM 总评 + 多轮追问]
+    end
+    subgraph OUT[输出层]
+        R[Markdown 报告]
+        W[Streamlit 前端 / CLI]
+        Q[聊天式多轮追问]
+    end
+
+    U --> GC
+    U --> CL
+    GC --> M
+    GC --> D
+    CL --> C
+    CL --> S
+    M --> LG
+    D --> LG
+    C --> LG
+    S --> LG
+    LG -->|HealthReport| LLM
+    LLM --> R
+    R --> W
+    R --> Q

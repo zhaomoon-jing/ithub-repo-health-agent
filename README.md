@@ -10,59 +10,13 @@
 
 ## 整体架构
 
-```mermaid
-flowchart LR
-    subgraph IN[输入层]
-        U[用户输入 owner/repo 或 URL]
-    end
-    subgraph CLIENT[数据获取层 clients]
-        GC[GitHubClient<br/>REST API 只读]
-        CL[Cloner<br/>tarball / git 克隆]
-    end
-    subgraph AN[分析层 analyzers]
-        M[metadata 活跃度/社区]
-        D[docs 文档完整性]
-        C[code ruff/radon/bandit]
-        S[security OSV/密钥]
-    end
-    subgraph ORCH[编排层 agents]
-        LG[LangGraph StateGraph<br/>并行 + 条件路由 + 容错]
-        LLM[LLM 总评 + 多轮追问]
-    end
-    subgraph OUT[输出层]
-        R[Markdown 报告]
-        W[Streamlit 前端 / CLI]
-        Q[聊天式多轮追问]
-    end
-
-    U --> GC & CL
-    GC --> M & D
-    CL --> C & S
-    M & D & C & S --> LG
-    LG -->|HealthReport| LLM --> R --> W
-    R --> Q
-```
+![整体架构](docs/images/architecture.svg)
 
 ---
 
 ## LangGraph 状态图拓扑
 
-```mermaid
-flowchart TD
-    START([START]) --> parse["parse<br/>解析 owner/repo"]
-    parse --> metadata["metadata<br/>元数据+活跃度+社区"]
-    parse --> docs["docs<br/>文档完整性"]
-    metadata --> router{router<br/>条件路由}
-    docs --> router
-    router -- "skip(浅层)" --> summary["summary<br/>总体诊断"]
-    router -- "deep(深度)" --> clone["clone<br/>tarball→git 降级"]
-    clone --> code["code<br/>ruff/radon/bandit"]
-    clone --> security["security<br/>OSV + 密钥扫描"]
-    code --> summary
-    security --> summary
-    summary --> finalize["finalize<br/>清理临时目录 + 组装报告"]
-    finalize --> END([END])
-```
+![LangGraph 状态图](docs/images/state-graph.svg)
 
 > 并行分支：`metadata` 与 `docs` 在解析后独立运行（均不依赖克隆）；`code` 与 `security` 在克隆后并行（共享克隆目录）。`findings` 用 `operator.add` 做 reducer 累积，保证多节点结果不被覆盖。
 
