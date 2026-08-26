@@ -4,7 +4,7 @@
 1. codeload tarball 下载（默认，国内网络友好，走 codeload.github.com）
 2. git clone（备选，需要 github.com 可达）
 
-安全设计（评审加分项）：
+安全设计：
 - 只读文件做静态分析，绝不执行仓库内任何脚本
 - 每次拉到独立临时目录，用完即清理
 - tarball 有体积上限，防巨型仓库拖垮分析
