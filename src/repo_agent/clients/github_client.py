@@ -133,33 +133,32 @@ class GitHubClient:
         ]
 
     def get_issue_metrics(self, ref: RepoRef) -> IssueMetrics:
-        """统计 Issue/PR 处理时效（最近 30 天）.
+        """统计 Issue/PR 数量与近 30 天处理时效.
 
-        计数策略：
-        - 开放数量：/repos/{full_name}/issues 带 state 参数，取 Link header 总页数
-        - 30 天关闭/合并数：GitHub Search API 精确计数（is:issue / is:pr + merged 过滤）
+        计数策略（重要）：四个指标**统一走 Search API**，返回 total_count 直接得总数。
+
+        为什么不再解析 Link header 的 rel="last"？
+        - GitHub 正逐步把 REST 端点从 offset 分页迁移到 cursor 分页。
+          实测 ``/repos/{o}/{r}/issues?state=open`` 的 Link header 已只返回
+          ``rel="next"`` + ``after=`` 游标，**不再有 rel="last"**，导致无法用总页数
+          推断总数；代码中 ``re.search(r'page=(\\d+)>; rel="last"')`` 匹配不到时会
+          回退到 ``len(r.json())``（per_page=1 时为 1），于是任何有 ≥1 个 open issue
+          的仓库都会被错计成 1。
+        - 即便能解析，``/issues`` 端点会把 PR 也当作 issue 返回，必须靠
+          ``is:issue`` / ``is:pr`` 区分；Search API 原生支持这种过滤，计数最准确。
+        - 因此这里全部用 Search API 计数，彻底规避 cursor 化带来的兼容性问题
+          （pulls 接口目前仍返回 rel="last"，但统一走 Search API 可一劳永逸）。
         """
         from datetime import datetime, timedelta, timezone
 
         since_iso = (datetime.now(timezone.utc) - timedelta(days=30)).strftime("%Y-%m-%d")
 
-        def _count(url: str, **extra) -> int:
-            """用 per_page=1 + Link header 数总页数（无 token 时也能用）."""
-            try:
-                r = self._client.get(
-                    url,
-                    params={"per_page": 1, **extra},
-                )
-                if r.status_code != 200:
-                    return 0
-                link = r.headers.get("Link", "")
-                m = re.search(r'page=(\d+)>; rel="last"', link)
-                return int(m.group(1)) if m else len(r.json())
-            except httpx.HTTPError:
-                return 0
-
         def _search_count(query: str) -> int:
-            """用 Search API 精确计数，失败返回 0."""
+            """用 Search API 精确计数，失败返回 0.
+
+            Search API 直接返回 total_count，无需翻页/解析 Link header，
+            也不受 cursor 分页影响；支持 is:issue / is:pr 精确区分 issue 与 PR。
+            """
             try:
                 r = self._client.get(
                     "/search/issues",
@@ -172,18 +171,10 @@ class GitHubClient:
                 return 0
 
         return IssueMetrics(
-            open_issues=_count(
-                f"/repos/{ref.full_name}/issues", state="open", type="issue"
-            ),
-            closed_issues_30d=_search_count(
-                f'repo:{ref.full_name} is:issue closed:>{since_iso}'
-            ),
-            open_prs=_count(
-                f"/repos/{ref.full_name}/pulls", state="open"
-            ),
-            merged_prs_30d=_search_count(
-                f'repo:{ref.full_name} is:pr merged:>{since_iso}'
-            ),
+            open_issues=_search_count(f"repo:{ref.full_name} is:issue is:open"),
+            closed_issues_30d=_search_count(f"repo:{ref.full_name} is:issue closed:>{since_iso}"),
+            open_prs=_search_count(f"repo:{ref.full_name} is:pr is:open"),
+            merged_prs_30d=_search_count(f"repo:{ref.full_name} is:pr merged:>{since_iso}"),
         )
 
     def get_readme_raw(self, ref: RepoRef, max_chars: int = 20000) -> str | None:
