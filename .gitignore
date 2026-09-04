@@ -10,3 +10,6 @@ build/
 reports/
 tmp/
 .DS_Store
+
+# 本地内部文档（含未公开内容，不入库、不外传）
+我的学习.md
