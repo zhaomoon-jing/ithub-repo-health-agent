@@ -331,6 +331,12 @@ class Pipeline:
             "use_llm": self.use_llm,
         }
         result = self.graph.invoke(initial)
+        if not isinstance(result, dict):
+            # 正常情况下 invoke 返回状态字典；非字典说明图执行异常，
+            # 明确报错而不是让 result.get 抛出难以定位的 AttributeError。
+            raise RuntimeError(
+                f"体检失败：流水线返回了非预期结果（{type(result).__name__}）"
+            )
         report = result.get("report")
         if report is None:
             raise RuntimeError(result.get("summary") or "体检失败：未生成报告")

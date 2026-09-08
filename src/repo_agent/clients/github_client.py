@@ -195,7 +195,16 @@ class GitHubClient:
             resp = self._client.get(f"/repos/{ref.full_name}/contents/")
             if resp.status_code != 200:
                 return []
-            return [item.get("name", "").lower() for item in resp.json() if item.get("type") == "file"]
+            items = resp.json()
+            # 防御：接口在异常场景（空仓库/重定向/错误体）可能返回 dict 而非 list，
+            # 直接遍历会把 key（str）当条目，触发 'str' object has no attribute 'get'。
+            if not isinstance(items, list):
+                return []
+            return [
+                item.get("name", "").lower()
+                for item in items
+                if isinstance(item, dict) and item.get("type") == "file"
+            ]
         except httpx.HTTPError:
             return []
 

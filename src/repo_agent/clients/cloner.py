@@ -124,6 +124,9 @@ def fetch_repo_git(
                 ["git", "clone", "--depth", "1", "--quiet", clone_url, str(target)],
                 capture_output=True,
                 text=True,
+                # git 输出为 UTF-8；Windows 默认 GBK 解码会因中文路径/报错信息崩溃
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
             )
             if proc.returncode == 0:

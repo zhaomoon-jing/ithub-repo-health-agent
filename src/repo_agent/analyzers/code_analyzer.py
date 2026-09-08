@@ -53,10 +53,18 @@ def _run_tool(cmd: list[str], cwd: Path, timeout: int = 180) -> tuple[int, str]:
     """运行工具命令，返回 (returncode, 合并输出)。失败不抛出，上层降级."""
     try:
         proc = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            # Windows 默认用 GBK 解码子进程输出，而 ruff/radon/bandit 输出为 UTF-8，
+            # 仓库含非 ASCII 字符（中文注释/路径）时会抛 UnicodeDecodeError 中断体检。
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
         )
         return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError, UnicodeDecodeError):
         return -1, ""
 
 
@@ -81,10 +89,15 @@ def run_ruff(repo_path: Path) -> dict:
     except json.JSONDecodeError:
         return {"available": True, "issues": 0, "errors": [], "parse_ok": False}
 
-    # 按规则码聚合，方便展示 Top 问题
+    # 防御：ruff 某些版本/异常场景输出非数组，直接遍历会把字符串当条目
+    if not isinstance(items, list):
+        return {"available": True, "issues": 0, "errors": [], "parse_ok": False}
+
     by_rule: dict[str, int] = {}
     samples: list[str] = []
     for it in items[:50]:
+        if not isinstance(it, dict):
+            continue
         rule = it.get("code", "?")
         by_rule[rule] = by_rule.get(rule, 0) + 1
         if len(samples) < 8:
@@ -108,9 +121,18 @@ def run_radon(repo_path: Path) -> dict:
     except json.JSONDecodeError:
         return {"available": True, "parse_ok": False}
 
+    # 防御：radon 对单个文件可能返回非列表（如解析异常时的错误描述），
+    # 直接 for f in funcs 会把字符串逐字符遍历，触发 'str' object has no attribute 'get'
+    if not isinstance(data, dict):
+        return {"available": True, "parse_ok": False}
+
     complexes: list[tuple[str, str, float]] = []
     for file, funcs in data.items():
+        if not isinstance(funcs, list):
+            continue
         for f in funcs:
+            if not isinstance(f, dict):
+                continue
             cc = f.get("complexity", 0)
             if cc >= 15:  # radon 认为 C 级以上偏高
                 complexes.append((file, f.get("name", "?"), cc))

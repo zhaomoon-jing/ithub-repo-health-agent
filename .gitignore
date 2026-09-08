@@ -13,3 +13,13 @@ tmp/
 
 # 本地内部文档（含未公开内容，不入库、不外传）
 我的学习.md
+
+# 博客草稿（对外发布前的备用稿，非运行必需）
+docs/blog-*.md
+
+# 文档图示源码与内部学习图（mermaid 源可本地重生成；summary 图仅被内部文档引用）
+docs/images/*.mmd
+docs/images/summary-llm-rule.svg
+
+# 临时运行日志
+_run.log

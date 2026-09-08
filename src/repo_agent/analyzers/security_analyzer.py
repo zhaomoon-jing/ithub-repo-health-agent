@@ -146,7 +146,13 @@ def _parse_pipfile_lock(path: Path) -> list[tuple[str, str | None]]:
         return []
     out: list[tuple[str, str | None]] = []
     for section in ("default", "develop"):
-        for name, meta in data.get(section, {}).items():
+        sec = data.get(section)
+        if not isinstance(sec, dict):
+            continue
+        for name, meta in sec.items():
+            # 防御：lock 条目可能是纯版本字符串而非对象
+            if not isinstance(meta, dict):
+                continue
             ver = meta.get("version", "").lstrip("^=~<>")
             out.append((name, ver or None))
     return out

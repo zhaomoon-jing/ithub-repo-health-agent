@@ -1,4 +1,4 @@
-"""Streamlit 前端：GitHub 仓库深度体检 Agent 可交互 demo.
+"""Streamlit 前端：GitHub 仓库深度体检 Agent 可交互.
 
 运行: streamlit run app.py
 """
@@ -106,7 +106,9 @@ def main() -> None:
         st.header("配置")
         token = st.text_input("GitHub Token（可选，提升限流）", type="password")
         skip_deep = st.checkbox("跳过深度分析（仅元数据，更快）", value=False)
-        use_llm = st.checkbox("启用 LLM 总体诊断（需 ZHIPU_API_KEY 或 DEEPSEEK_API_KEY）", value=False)
+        use_llm = st.checkbox(
+		     "启用 LLM 总体诊断（需 ZHIPU_API_KEY 或 DEEPSEEK_API_KEY）", value=False
+		)
         st.divider()
         st.markdown("输入格式：`owner/repo` 或完整 URL")
 
