@@ -183,7 +183,6 @@ def render_report(report: HealthReport) -> None:
     st.header(f"🏥 {report.repo.full_name}")
     st.caption(f"生成时间: {report.generated_at.strftime('%Y-%m-%d %H:%M')}")
     st.metric("健康总分", f"{report.overall_score:.1f} / 100")
-    st.info("如需发送报告，请在左侧边栏填写邮箱后点击【发送当前报告】")
 
     if report.summary:
         st.subheader("🧠 总体诊断")
