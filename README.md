@@ -1,10 +1,10 @@
-# GitHub 仓库深度体检 Agent (Repo Health Agent)
+# GitHub 仓库深度体检（Repo Health）
 
-输入一个 GitHub 仓库 URL，Agent 自动执行多维度深度体检，输出带证据的健康报告，并支持基于报告的多轮追问对话。
+输入一个 GitHub 仓库 URL，自动执行多维度深度体检，输出带证据的健康报告，并支持基于报告的多轮追问对话。
 
 **一句话定位**：不是"查 GitHub 表面数据"的工具，而是 **clone 代码做真实静态分析**——代码质量、依赖漏洞、密钥泄露都真查，每条结论带文件行号证据，最后由 LLM 生成自然语言总评，并支持多轮追问。
 
-**差异化定位**：现有开源工具（RepoHealth、RepocheckAI 等）只查 GitHub API 表面元数据。本项目把"真实代码分析"作为核心差异点，并用 LangGraph 做多 Agent 编排、用 LLM 做总评与追问，是一个可复用的 **Agent 工程样例**。
+**差异化定位**：现有开源工具（RepoHealth、RepocheckAI 等）只查 GitHub API 表面元数据。本项目把"真实代码分析"作为核心差异点，并用 LangGraph 做编排、用 LLM 做总评与追问，是一个可复用的 **LLM 应用工程样例**。
 
 ---
 
@@ -29,7 +29,7 @@
 - [x] D3: clone 代码 + 静态分析（ruff / radon / bandit，带文件行号证据）
 - [x] D4: 依赖漏洞扫描（OSV API）+ 硬编码密钥检测 → 安全维度
 - [x] D5: Streamlit 可交互前端（输入 URL → 实时体检 → 5 维度可视化 + 多轮追问）
-- [x] D6/D7: LangGraph 多 Agent 编排（状态图，真实并行 + 条件路由 + 容错降级）
+- [x] D6/D7: LangGraph 编排（状态图，真实并行 + 条件路由 + 容错降级）
 - [x] D8: 基于报告的多轮追问对话（LLM 意图识别 + 上下文追踪）
 
 ---
@@ -105,7 +105,7 @@ src/repo_agent/
 ├── models.py            # 数据模型：RepoRef / RepoMetadata / MetadataFinding / HealthReport
 ├── agents/
 │   ├── __init__.py      # LangGraph 编排核心：Pipeline(StateGraph) + LLM 总评 + 意图/路由
-│   └── qa.py            # D8 多轮追问 Agent：RepoQA（意图识别 + 上下文追踪）
+│   └── qa.py            # D8 多轮追问：RepoQA（意图识别 + 上下文追踪）
 ├── clients/
 │   ├── github_client.py # GitHub REST API 封装（只读）+ URL 解析
 │   └── cloner.py        # 仓库获取：tarball 优先，git clone 降级，用完清理
@@ -136,10 +136,10 @@ app.py                   # Streamlit 前端（report + 多轮追问 UI）
 
 ## 项目亮点
 
-1. **真实 Agent 编排**：用 LangGraph 显式建模并行分支、条件路由、状态累积（reducer）、容错降级——不是"套壳 LLM"。
+1. **真实流水线编排**：用 LangGraph 显式建模并行分支、条件路由、状态累积（reducer）、容错降级——不是"套壳 LLM"。
 2. **差异化数据源**：clone 代码做真静态分析（ruff/radon/bandit/OSV），结论带文件行号证据，而非只查 API 元数据。
 3. **LLM 工程克制**：只在流水线末端调一次 LLM 做总评、按需多轮追问；其余靠确定性的规则评分，可解释、可测试、零成本。
-4. **对话式交互能力**：D8 的追问 Agent 显式做意图识别（有限意图分类）+ 上下文追踪，把开放问题映射到有限意图集合，回答更有针对性、也更可解释。
+4. **对话式交互能力**：D8 的多轮追问显式做意图识别（有限意图分类）+ 上下文追踪，把开放问题映射到有限意图集合，回答更有针对性、也更可解释。
 5. **工程鲁棒性**：tarball 降级、限流兼容、临时目录清理、调用失败降级——生产级细节。
 
 ---
@@ -155,6 +155,6 @@ app.py                   # Streamlit 前端（report + 多轮追问 UI）
 | 阶段 | 内容 | 状态 |
 |------|------|------|
 | 基础 | 元数据 → 文档 → clone 静态分析 → 安全扫描 | ✅ 完成 |
-| 编排 | LangGraph 多 Agent 状态图（并行+路由+容错） | ✅ 完成 |
+| 编排 | LangGraph 状态图（并行+路由+容错） | ✅ 完成 |
 | 智能 | LLM 总评 + 多轮追问对话（意图识别/上下文追踪） | ✅ 完成 |
 | 文档 | README 架构图 + 讲解文档（我的学习.md） | ✅ 完成 |
